@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Price Finder</title>
+<meta name="color-scheme" content="light dark">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ---------- Tokens ---------- */
+  :root {
+    --bg: #eef2ee;
+    --card: #ffffff;
+    --ink: #142019;
+    --muted: #5a6760;
+    --line: #d3dcd6;
+    --soft: #e3ebe5;
+    --accent: #0b6e50;
+    --accent-ink: #ffffff;
+    --tag: #ffd23f;
+    --tag-ink: #1b1600;
+    --star: #c98a00;
+    --star-off: #d6dcd8;
+    --wait: #b03f12;
+    --warn-bg: #fff4d6;
+    --warn-line: #ecd48a;
+    --win: color-mix(in srgb, var(--accent) 12%, var(--card));
+    --chart: #007a52;   /* price line; checked for contrast on light and dark */
+    --shadow: 0 1px 0 rgba(20, 32, 25, .04), 0 8px 24px -12px rgba(20, 32, 25, .18);
+
+    --display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+    --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+    --r-lg: 14px;
+    --r-md: 10px;
+    --r-sm: 6px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1612;
+      --card: #17211c;
+      --ink: #e6eee9;
+      --muted: #9aa8a1;
+      --line: #2a3831;
+      --soft: #22302a;
+      --accent: #3fbf8f;
+      --accent-ink: #062016;
+      --star: #f2b632;
+      --star-off: #3a4842;
+      --wait: #ff8a5b;
+      --chart: #29a878;
+      --warn-bg: #2d2714;
+      --warn-line: #5c4d1d;
+      --shadow: 0 1px 0 rgba(0, 0, 0, .3), 0 10px 28px -14px rgba(0, 0, 0, .7);
+    }
+  }
+
+  /* ---------- Base ---------- */
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--body); font-size: 1rem; line-height: 1.5;
+    font-feature-settings: "tnum" 0;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 44px 20px 140px; }
+  img { display: block; }
+  button { font: inherit; color: inherit; }
+  :where(a, button, input, [tabindex]):focus-visible {
+    outline: 3px solid var(--accent); outline-offset: 2px; border-radius: var(--r-sm);
+  }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    max-width: 960px; margin: 0 auto; padding: 18px 20px 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; }
+  .brand .mark {
+    display: inline-grid; place-items: center; height: 28px; padding: 0 9px 0 17px;
+    font-family: var(--display); font-weight: 800; background: var(--tag); color: var(--tag-ink);
+    clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%);
+    -webkit-mask: radial-gradient(circle at 8px 50%, transparent 2.5px, #000 3px);
+            mask: radial-gradient(circle at 8px 50%, transparent 2.5px, #000 3px);
+  }
+  .account { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .account form { margin: 0; }
+  .who { color: var(--muted); font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who b { color: var(--ink); font-weight: 600; }
+  .signout {
+    border: 1.5px solid var(--line); background: var(--card); border-radius: 999px;
+    padding: 6px 14px; font-size: .88rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .signout:hover { border-color: var(--ink); }
+  @media (max-width: 480px) { .who { display: none; } }
+
+  /* ---------- Header + search ---------- */
+  h1 {
+    font-family: var(--display); font-weight: 800;
+    font-size: clamp(2.4rem, 7vw, 4rem); line-height: 1; margin: 0 0 14px;
+    letter-spacing: -0.03em; font-variation-settings: "opsz" 96;
+  }
+  .sub { color: var(--muted); margin: 0 0 28px; max-width: 54ch; font-size: 1.05rem; }
+
+  .search {
+    display: flex; gap: 0; background: var(--card);
+    border: 2px solid var(--ink); border-radius: var(--r-lg);
+    padding: 5px; box-shadow: var(--shadow);
+  }
+  .search:focus-within { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 2px; }
+  .search input {
+    flex: 1; min-width: 0; font: inherit; font-size: 1.1rem; color: var(--ink);
+    padding: 12px 14px; border: 0; background: transparent;
+  }
+  .search input:focus-visible { outline: none; }
+  .search input::placeholder { color: var(--muted); opacity: .8; }
+  .btn-primary {
+    font-weight: 700; padding: 12px 26px; border: 0; border-radius: var(--r-md);
+    background: var(--ink); color: var(--bg); cursor: pointer;
+    transition: transform .12s ease;
+  }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-primary:disabled { opacity: .6; cursor: progress; }
+
+  /* ---------- Status, warnings, advice ---------- */
+  #status { margin: 28px 0 10px; color: var(--muted); min-height: 1.5em; }
+  #status strong { color: var(--ink); font-weight: 600; }
+  .warn {
+    background: var(--warn-bg); border: 1px solid var(--warn-line);
+    padding: 10px 14px; border-radius: var(--r-md); margin: 8px 0; font-size: .95rem;
+  }
+  /* ---------- Buy-or-wait chips ---------- */
+  .predict-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-top: 8px; }
+  .pchip {
+    display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 700;
+    padding: 3px 10px 3px 7px; border-radius: 999px; background: var(--soft); color: var(--ink);
+    white-space: nowrap;
+  }
+  .pchip .ico {
+    width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 10px; line-height: 1; background: var(--muted); color: var(--card);
+  }
+  .pchip.v-buy { background: color-mix(in srgb, var(--accent) 14%, var(--card)); color: var(--accent); }
+  .pchip.v-buy .ico { background: var(--accent); }
+  .pchip.v-wait { background: color-mix(in srgb, var(--wait) 13%, var(--card)); color: var(--wait); }
+  .pchip.v-wait .ico { background: var(--wait); }
+  .pchip .guess { font-weight: 500; color: var(--muted); }
+  .linkbtn {
+    position: relative; z-index: 1; border: 0; background: none; padding: 2px 0; cursor: pointer;
+    font-size: .86rem; font-weight: 600; color: var(--ink);
+    text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line);
+  }
+  .linkbtn:hover { text-decoration-color: currentColor; }
+
+  /* ---------- Tracked products ---------- */
+  .tracked { margin: 26px 0 0; }
+  .tracked h2 { font-family: var(--display); font-size: 1.2rem; margin: 0; letter-spacing: -0.01em; }
+  .tracked-note { color: var(--muted); font-size: .9rem; margin: 2px 0 10px; }
+  .tracked-list { display: grid; gap: 6px; }
+  .trow {
+    display: grid; grid-template-columns: 40px minmax(0, 1fr) auto auto; gap: 12px; align-items: center;
+    width: 100%; text-align: left; padding: 8px 12px 8px 8px; cursor: pointer;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--r-md);
+  }
+  .trow:hover { border-color: color-mix(in srgb, var(--ink) 55%, var(--line)); }
+  .trow .media { width: 40px; height: 40px; border-radius: 8px; }
+  .trow .tt { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trow .tp { font-family: var(--display); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Price history dialog ---------- */
+  dialog.hist { width: min(760px, calc(100vw - 24px)); }
+  .hp { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 14px; align-items: center; margin-bottom: 16px; }
+  .hp .media { width: 64px; height: 64px; }
+  .hp .ht { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hp .hs { color: var(--muted); font-size: .88rem; }
+  .callout {
+    border-radius: var(--r-lg); padding: 16px 18px; margin-bottom: 18px;
+    background: var(--soft); border-left: 6px solid var(--muted);
+  }
+  .callout.v-buy { border-left-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+  .callout.v-wait { border-left-color: var(--wait); background: color-mix(in srgb, var(--wait) 10%, var(--card)); }
+  .callout h3 { margin: 0 0 6px; font-family: var(--display); font-size: 1.45rem; line-height: 1.15; letter-spacing: -0.02em; }
+  .callout.v-buy h3 { color: var(--accent); }
+  .callout.v-wait h3 { color: var(--wait); }
+  .callout dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; font-size: .95rem; }
+  .callout dt { color: var(--muted); }
+  .callout dd { margin: 0; font-weight: 600; }
+
+  .chart-fig { margin: 0 0 6px; position: relative; }
+  .chart-fig figcaption { font-weight: 600; margin-bottom: 6px; }
+  .chart-fig svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .chart-fig .grid { stroke: var(--line); stroke-width: 1; }
+  .chart-fig .axis-label { fill: var(--muted); font-size: 11px; font-family: var(--body); }
+  .chart-fig .series { fill: none; stroke: var(--chart); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .chart-fig .forecast { fill: none; stroke: var(--chart); stroke-width: 2; stroke-dasharray: 5 4; }
+  .chart-fig .dot { fill: var(--chart); stroke: var(--card); stroke-width: 2; }
+  .chart-fig .dot.future { fill: var(--card); stroke: var(--chart); }
+  .chart-fig .point-label { fill: var(--ink); font-size: 12px; font-weight: 600; font-family: var(--body); }
+  .chart-fig .point-label.muted { fill: var(--muted); font-weight: 500; }
+  .chart-fig .cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+  .chart-tip {
+    position: absolute; pointer-events: none; transform: translate(-50%, -110%);
+    background: var(--ink); color: var(--bg); padding: 5px 9px; border-radius: 8px;
+    font-size: .82rem; white-space: nowrap; box-shadow: var(--shadow);
+  }
+  .chart-tip b { font-family: var(--display); }
+  .chart-note { color: var(--muted); font-size: .88rem; margin: 4px 0 0; }
+
+  .hstats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 16px 0; }
+  .hstats div { background: var(--soft); border-radius: var(--r-md); padding: 10px 12px; }
+  .hstats span { display: block; color: var(--muted); font-size: .82rem; }
+  .hstats b { font-family: var(--display); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+  .why h4 { margin: 0 0 8px; font-size: 1rem; }
+  .why ul { list-style: none; padding: 0; margin: 0 0 18px; display: grid; gap: 8px; }
+  .why li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: start; }
+  .why li .ico {
+    width: 18px; height: 18px; margin-top: 2px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 10px; background: var(--muted); color: var(--card);
+  }
+  .why li.v-buy .ico { background: var(--accent); }
+  .why li.v-wait .ico { background: var(--wait); }
+  .track-box {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+    padding: 14px 16px; border: 1.5px dashed var(--line); border-radius: var(--r-lg);
+  }
+  .track-box p { margin: 0; color: var(--muted); font-size: .92rem; max-width: 46ch; }
+  .track-box p b { color: var(--ink); }
+  .btn-track {
+    font-weight: 700; padding: 10px 18px; border-radius: 10px; cursor: pointer;
+    border: 0; background: var(--ink); color: var(--bg);
+  }
+  .btn-track.on { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .disclaimer { color: var(--muted); font-size: .82rem; margin: 14px 0 0; }
+  details.tbl { margin-top: 14px; font-size: .9rem; }
+  details.tbl summary { cursor: pointer; font-weight: 600; }
+  details.tbl table { border-collapse: collapse; margin-top: 8px; }
+  details.tbl td, details.tbl th { padding: 4px 16px 4px 0; text-align: left; font-variant-numeric: tabular-nums; }
+
+  /* ---------- Toolbar ---------- */
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center;
+    justify-content: space-between; margin: 22px 0 6px;
+  }
+  .toolbar[hidden] { display: none; }
+  .seg {
+    display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px;
+    background: var(--soft); border: 1px solid var(--line);
+  }
+  .seg button {
+    border: 0; background: transparent; padding: 7px 14px; border-radius: 999px;
+    font-size: .92rem; font-weight: 600; color: var(--muted); cursor: pointer; white-space: nowrap;
+  }
+  .seg button:hover { color: var(--ink); }
+  .seg button[aria-pressed="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .hint { color: var(--muted); font-size: .9rem; margin: 6px 0 14px; max-width: 70ch; }
+
+  /* ---------- Result cards ---------- */
+  .list { display: grid; gap: 10px; }
+  .item {
+    position: relative;
+    display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 18px; align-items: center;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--r-lg);
+    padding: 14px 16px 14px 14px;
+  }
+  .item:hover { border-color: color-mix(in srgb, var(--ink) 55%, var(--line)); }
+  .item.lowest { border: 2px solid var(--accent); padding: 13px 15px 13px 13px; }
+  .item.picked { box-shadow: inset 0 0 0 2px var(--tag); }
+
+  .media {
+    width: 96px; height: 96px; border-radius: var(--r-md); background: #fff;
+    display: grid; place-items: center; overflow: hidden;
+  }
+  .media img { width: 100%; height: 100%; object-fit: contain; padding: 6px; }
+  .media.empty { background: var(--soft); }
+
+  .info { min-width: 0; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .badges:empty { display: none; }
+  .badge {
+    font-size: .78rem; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+    background: var(--tag); color: var(--tag-ink);
+  }
+  .badge.rated { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .badge.value { background: var(--ink); color: var(--bg); }
+
+  .title {
+    color: inherit; text-decoration: none; font-weight: 500; font-size: 1.02rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .title::after { content: ""; position: absolute; inset: 0; border-radius: var(--r-lg); }
+  .title:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .title:focus-visible { outline: none; }
+  .title:focus-visible::after { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 6px; font-size: .9rem; color: var(--muted); }
+  .store { font-weight: 600; color: var(--ink); }
+  .store::before {
+    content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 6px; vertical-align: 1px; background: var(--muted);
+  }
+  .store.amazon::before { background: #f59e0b; }
+  .store.flipkart::before { background: #2f6fdf; }
+
+  /* Stars: five glyphs filled to the rating with a gradient */
+  .rating { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .stars {
+    --pct: 0%;
+    font-size: 1rem; letter-spacing: 1px; line-height: 1;
+    background: linear-gradient(90deg, var(--star) var(--pct), var(--star-off) var(--pct));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .rating b { color: var(--ink); font-weight: 700; }
+  .no-rating { font-style: italic; }
+
+  .buy { display: grid; justify-items: end; gap: 6px; text-align: right; }
+
+  /* The price tag: a shelf tag with a punched hole */
+  .tag {
+    --hole: 11px;
+    display: inline-block; position: relative;
+    font-family: var(--display); font-weight: 700; font-size: 1.4rem; line-height: 1;
+    font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+    padding: 9px 14px 9px 26px; background: var(--soft); color: var(--ink);
+    clip-path: polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 50%);
+    -webkit-mask: radial-gradient(circle at var(--hole) 50%, transparent 3.5px, #000 4px);
+            mask: radial-gradient(circle at var(--hole) 50%, transparent 3.5px, #000 4px);
+  }
+  .item.lowest .tag { background: var(--tag); color: var(--tag-ink); }
+  .mrp { font-size: .85rem; color: var(--muted); white-space: nowrap; }
+  .mrp s { margin-right: 6px; }
+  .off { color: var(--accent); font-weight: 700; }
+
+  .cmp {
+    position: relative; z-index: 1; /* sits above the card's stretched link */
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 1.5px solid var(--line); background: var(--card); border-radius: 999px;
+    padding: 5px 12px 5px 9px; font-size: .85rem; font-weight: 600; cursor: pointer; color: var(--muted);
+  }
+  .cmp:hover { border-color: var(--ink); color: var(--ink); }
+  .cmp .box {
+    width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid currentColor;
+    display: grid; place-items: center; font-size: 11px; line-height: 1;
+  }
+  .cmp[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+  .cmp[aria-pressed="true"] .box { background: var(--tag); border-color: var(--tag); color: var(--tag-ink); }
+  .cmp[aria-pressed="true"] .box::after { content: "✓"; font-weight: 800; }
+
+  /* Loading placeholders */
+  .skeleton { pointer-events: none; }
+  .skeleton .bar { height: 12px; border-radius: 6px; background: var(--soft); margin: 8px 0; }
+  .skeleton .bar.w1 { width: 80%; } .skeleton .bar.w2 { width: 45%; }
+  .skeleton .media, .skeleton .tagph { background: var(--soft); }
+  .skeleton .tagph { width: 96px; height: 38px; border-radius: var(--r-sm); }
+  .skeleton .media, .skeleton .bar, .skeleton .tagph { animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+
+  .empty-state {
+    text-align: left; padding: 28px 22px; border: 1.5px dashed var(--line);
+    border-radius: var(--r-lg); color: var(--muted);
+  }
+  .empty-state b { color: var(--ink); display: block; font-family: var(--display); font-size: 1.2rem; margin-bottom: 4px; }
+
+  /* ---------- Compare tray ---------- */
+  .tray {
+    position: fixed; left: 50%; bottom: 16px; z-index: 20;
+    width: min(720px, calc(100vw - 32px));
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 10px 10px 14px; border-radius: 16px;
+    background: var(--ink); color: var(--bg);
+    box-shadow: 0 18px 40px -16px rgba(0, 0, 0, .55);
+    transform: translate(-50%, 0); transition: transform .25s ease, opacity .25s ease;
+  }
+  .tray[hidden] { display: flex; transform: translate(-50%, 140%); opacity: 0; pointer-events: none; visibility: hidden; }
+  .tray-thumbs { display: flex; gap: 6px; }
+  .tray-thumbs span {
+    width: 40px; height: 40px; border-radius: 8px; background: #fff; overflow: hidden;
+    display: grid; place-items: center; font-size: .7rem; color: #555;
+  }
+  .tray-thumbs img { width: 100%; height: 100%; object-fit: contain; padding: 3px; }
+  .tray-text { flex: 1; min-width: 0; font-size: .92rem; line-height: 1.3; }
+  .tray-text small { display: block; opacity: .7; }
+  .tray .clear {
+    background: transparent; border: 0; color: inherit; opacity: .8; font-weight: 600;
+    padding: 10px 8px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+  }
+  .tray .go {
+    background: var(--tag); color: var(--tag-ink); border: 0; border-radius: 10px;
+    padding: 11px 18px; font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .tray .go:disabled { opacity: .5; cursor: not-allowed; }
+  .tray :focus-visible { outline-color: var(--tag); }
+
+  /* ---------- Compare dialog ---------- */
+  dialog {
+    width: min(1040px, calc(100vw - 24px)); max-height: calc(100dvh - 24px);
+    padding: 0; border: 0; border-radius: 18px; background: var(--card); color: var(--ink);
+    box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .5);
+  }
+  dialog::backdrop { background: rgba(10, 18, 14, .55); backdrop-filter: blur(2px); }
+  dialog[open] { animation: rise .22s ease-out; }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+  .dlg-head {
+    position: sticky; top: 0; z-index: 3; background: var(--card);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 18px 22px 14px; border-bottom: 1px solid var(--line);
+  }
+  .dlg-head h2 { margin: 0; font-family: var(--display); font-size: 1.5rem; letter-spacing: -0.02em; }
+  .close {
+    border: 1.5px solid var(--line); background: var(--card); border-radius: 999px;
+    width: 38px; height: 38px; font-size: 1.2rem; line-height: 1; cursor: pointer;
+  }
+  .close:hover { border-color: var(--ink); }
+  .dlg-body { padding: 18px 22px 24px; }
+
+  .verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .verdict div { background: var(--soft); border-radius: var(--r-md); padding: 12px 14px; }
+  .verdict span { display: block; font-size: .85rem; color: var(--muted); }
+  .verdict strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight: 600; }
+
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); }
+  table.cmp-table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 560px; table-layout: fixed; }
+  .cmp-table th, .cmp-table td { padding: 12px 14px; vertical-align: top; text-align: left; border-bottom: 1px solid var(--line); }
+  .cmp-table tr:last-child > * { border-bottom: 0; }
+  .cmp-table th[scope="row"] {
+    width: 128px; position: sticky; left: 0; z-index: 1; background: var(--card);
+    font-weight: 600; color: var(--muted); font-size: .9rem; border-right: 1px solid var(--line);
+  }
+  .cmp-table thead th { font-weight: 500; }
+  .cmp-table .head-img { width: 100%; height: 120px; background: #fff; border-radius: var(--r-md); display: grid; place-items: center; margin-bottom: 10px; }
+  .cmp-table .head-img { overflow: hidden; display: block; }
+  .cmp-table .head-img.empty { background: var(--soft); }
+  .cmp-table .head-img img { width: 100%; height: 100%; object-fit: contain; padding: 8px; }
+  .cmp-table thead td { position: sticky; left: 0; z-index: 1; background: var(--card); border-right: 1px solid var(--line); }
+  .cmp-table .head-title { font-size: .95rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .cmp-table .big { font-family: var(--display); font-weight: 700; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  .cmp-table td.win { background: var(--win); }
+  .cmp-table td.win::after {
+    content: "Best"; display: block; width: fit-content; margin-top: 6px;
+    font-size: .72rem; font-weight: 700; color: var(--accent-ink); background: var(--accent);
+    padding: 1px 8px; border-radius: 999px;
+  }
+  .cmp-table .muted { color: var(--muted); }
+  .cmp-table .open {
+    display: inline-block; font-weight: 700; color: var(--accent); text-decoration: none;
+    border-bottom: 2px solid currentColor; padding-bottom: 1px;
+  }
+  .cmp-table .remove {
+    margin-top: 8px; border: 0; background: none; padding: 0; color: var(--muted);
+    font-size: .85rem; text-decoration: underline; cursor: pointer;
+  }
+
+  /* ---------- Small screens ---------- */
+  @media (max-width: 640px) {
+    main { padding-top: 36px; }
+    .item { grid-template-columns: 72px minmax(0, 1fr); gap: 12px 14px; }
+    .media { width: 72px; height: 72px; }
+    .buy {
+      grid-column: 1 / -1; grid-template-columns: auto 1fr auto; align-items: center;
+      justify-items: start; text-align: left; gap: 10px;
+      padding-top: 10px; border-top: 1px dashed var(--line);
+    }
+    .buy .cmp { justify-self: end; }
+    .tag { font-size: 1.2rem; }
+    .toolbar { flex-direction: column; align-items: stretch; }
+    .seg { width: 100%; }
+    .seg button { flex: 1; padding: 7px 8px; }
+    .tray { gap: 10px; }
+    .tray-thumbs { display: none; }
+    .dlg-head, .dlg-body { padding-left: 14px; padding-right: 14px; }
+    .cmp-table th[scope="row"] { width: 92px; }
+    .verdict { gap: 6px; }
+    .verdict div { padding: 8px 12px; }
+    .verdict strong { -webkit-line-clamp: 1; }
+    .cmp-table .head-img { height: 90px; }
+    .hstats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .callout dl { grid-template-columns: 1fr; }
+    .callout dd { margin-bottom: 6px; }
+    .callout h3 { font-size: 1.25rem; }
+    .hp { grid-template-columns: 48px minmax(0, 1fr); }
+    .hp .media { width: 48px; height: 48px; }
+    .hp .tag { grid-column: 1 / -1; justify-self: start; }
+    .trow { grid-template-columns: 40px minmax(0, 1fr) auto; }
+    .trow .pchip { grid-column: 2 / -1; justify-self: start; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <span class="brand"><span class="mark" aria-hidden="true">₹</span>Price Finder</span>
+  <div class="account">
+    <span class="who" title="{{ user.email }}">Signed in as <b>{{ user.name }}</b></span>
+    <form method="post" action="{{ url_for('logout') }}">
+      <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+      <button type="submit" class="signout">Sign out</button>
+    </form>
+  </div>
+</header>
+<main>
+  <h1>Find the lowest price.</h1>
+  <p class="sub">Search a product. We check Amazon and Flipkart, then let you sort by price or rating and compare picks side by side.</p>
+
+  <form id="f" class="search" role="search">
+    <label for="q" class="sr-only">Product name</label>
+    <input type="search" id="q" placeholder="e.g. boAt Airdopes 141" required autofocus autocomplete="off">
+    <button id="go" class="btn-primary" type="submit">Search</button>
+  </form>
+
+  <section class="tracked" id="tracked" hidden aria-labelledby="trackedTitle">
+    <h2 id="trackedTitle">Products you're tracking</h2>
+    <p class="tracked-note">While the app is running, we check these once a day so their predictions get better.</p>
+    <div class="tracked-list" id="trackedList"></div>
+  </section>
+
+  <div id="status" aria-live="polite"></div>
+  <div id="warnings"></div>
+
+  <div class="toolbar" id="toolbar" hidden>
+    <div class="seg" role="group" aria-label="Sort results" id="sort">
+      <button type="button" data-sort="price" aria-pressed="true">Lowest price</button>
+      <button type="button" data-sort="rating" aria-pressed="false">Top rated</button>
+      <button type="button" data-sort="value" aria-pressed="false">Best value</button>
+    </div>
+    <div class="seg" role="group" aria-label="Filter by store" id="sites">
+      <button type="button" data-site="all" aria-pressed="true">All stores</button>
+      <button type="button" data-site="Amazon" aria-pressed="false">Amazon</button>
+      <button type="button" data-site="Flipkart" aria-pressed="false">Flipkart</button>
+    </div>
+  </div>
+  <p class="hint" id="hint" hidden></p>
+
+  <div class="list" id="results"></div>
+</main>
+
+<div class="tray" id="tray" hidden role="region" aria-label="Compare">
+  <div class="tray-thumbs" id="trayThumbs"></div>
+  <div class="tray-text" id="trayText"></div>
+  <button type="button" class="clear" id="trayClear">Clear</button>
+  <button type="button" class="go" id="trayGo">Compare</button>
+</div>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <div class="dlg-head">
+    <h2 id="dlgTitle">Compare</h2>
+    <button type="button" class="close" id="dlgClose" aria-label="Close compare">×</button>
+  </div>
+  <div class="dlg-body" id="dlgBody"></div>
+</dialog>
+
+<dialog id="hist" class="hist" aria-labelledby="histTitle">
+  <div class="dlg-head">
+    <h2 id="histTitle">Price history</h2>
+    <button type="button" class="close" id="histClose" aria-label="Close price history">×</button>
+  </div>
+  <div class="dlg-body" id="histBody"></div>
+</dialog>
+
+<script>
+const $ = id => document.getElementById(id);
+const form = $("f"), q = $("q"), go = $("go");
+const statusEl = $("status"), warnEl = $("warnings");
+const resultsEl = $("results"), toolbar = $("toolbar"), hintEl = $("hint");
+const tray = $("tray"), dlg = $("dlg");
+
+const MAX_COMPARE = 4;
+const PRIOR_VOTES = 100; // how many ratings it takes before a product's own score outweighs the average
+
+const state = { products: [], sort: "price", site: "all", selected: [], query: "" };
+
+const rupee = n => "₹" + Number(n).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+const count = n => Number(n).toLocaleString("en-IN");
+
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined && text !== null) e.textContent = text;
+  return e;
+}
+
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+async function api(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF, ...(options.headers || {}) },
+  });
+  if (res.status === 401) { window.location.href = "/login?next=/"; throw new Error("Signed out"); }
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Something went wrong. Try again.");
+  return data;
+}
+
+/* ---------- Scoring ---------- */
+// Weighted rating: a 4.8 from 6 people should not beat a 4.4 from 20,000.
+function scoreProducts(list) {
+  const rated = list.filter(p => p.rating);
+  const avg = rated.length ? rated.reduce((s, p) => s + p.rating, 0) / rated.length : 3.8;
+  list.forEach((p, i) => {
+    p.id = i;
+    const votes = p.rating ? (p.reviews || 0) : 0;
+    p.weighted = p.rating ? (votes * p.rating + PRIOR_VOTES * avg) / (votes + PRIOR_VOTES) : null;
+  });
+
+  // Best value: 55% weighted rating, 45% cheapness (log scale so ₹199 vs ₹299 matters more than ₹19,900 vs ₹19,999).
+  const ws = list.map(p => p.weighted ?? avg);
+  const lp = list.map(p => Math.log(p.price));
+  const [wMin, wMax] = [Math.min(...ws), Math.max(...ws)];
+  const [lMin, lMax] = [Math.min(...lp), Math.max(...lp)];
+  list.forEach((p, i) => {
+    const r = wMax > wMin ? (ws[i] - wMin) / (wMax - wMin) : 0.5;
+    const c = lMax > lMin ? (lMax - lp[i]) / (lMax - lMin) : 1;
+    p.value = (p.rating ? 0.55 * r : 0.2 * r) + 0.45 * c; // unrated items are not trusted as much
+  });
+
+  const cheapest = list.reduce((a, b) => (b.price < a.price ? b : a), list[0]);
+  const topRated = rated.length ? rated.reduce((a, b) => (b.weighted > a.weighted ? b : a)) : null;
+  const bestValue = list.reduce((a, b) => (b.value > a.value ? b : a), list[0]);
+  return { cheapestId: cheapest.id, topRatedId: topRated ? topRated.id : null, bestValueId: bestValue.id };
+}
+
+const SORTS = {
+  price: (a, b) => a.price - b.price,
+  rating: (a, b) => (b.weighted ?? -1) - (a.weighted ?? -1) || a.price - b.price,
+  value: (a, b) => b.value - a.value,
+};
+const HINTS = {
+  price: "",
+  rating: "Top rated counts how many people rated a product, so a 4.6 from 20 people ranks below a 4.4 from 20,000.",
+  value: "Best value balances the rating against the price. Products with no rating rank lower because there is nothing to go on.",
+};
+
+/* ---------- Pieces ---------- */
+function stars(p, withCount = true) {
+  const wrap = el("span", "rating");
+  if (!p.rating) { wrap.append(el("span", "no-rating", "No ratings yet")); return wrap; }
+  const s = el("span", "stars", "★★★★★");
+  s.style.setProperty("--pct", (p.rating / 5 * 100) + "%");
+  s.setAttribute("aria-hidden", "true");
+  const label = `Rated ${p.rating} out of 5` + (p.reviews ? ` from ${count(p.reviews)} ratings` : "");
+  wrap.setAttribute("aria-label", label);
+  wrap.setAttribute("role", "img");
+  wrap.append(s, el("b", null, p.rating.toFixed(1)));
+  if (withCount && p.reviews) wrap.append(el("span", null, `(${count(p.reviews)})`));
+  return wrap;
+}
+
+function thumb(p, cls) {
+  const box = el("div", cls);
+  if (p.image) {
+    const img = el("img"); img.src = p.image; img.alt = ""; img.loading = "lazy";
+    img.onerror = () => { img.remove(); box.classList.add("empty"); };
+    box.append(img);
+  } else box.classList.add("empty");
+  return box;
+}
+
+/* ---------- Results list ---------- */
+function renderList() {
+  const { cheapestId, topRatedId, bestValueId } = state.meta;
+  const shown = state.products
+    .filter(p => state.site === "all" || p.site === state.site)
+    .sort(SORTS[state.sort]);
+
+  hintEl.hidden = !HINTS[state.sort];
+  hintEl.textContent = HINTS[state.sort];
+  resultsEl.replaceChildren();
+
+  if (!shown.length) {
+    const box = el("div", "empty-state");
+    box.append(el("b", null, `Nothing from ${state.site} for this search`), "Switch to All stores to see the other results.");
+    resultsEl.append(box);
+    return;
+  }
+
+  shown.forEach(p => {
+    const picked = state.selected.includes(p.id);
+    const card = el("article", "item" + (p.id === cheapestId ? " lowest" : "") + (picked ? " picked" : ""));
+
+    const info = el("div", "info");
+    const badges = el("div", "badges");
+    if (p.id === cheapestId) badges.append(el("span", "badge", "Lowest price"));
+    if (p.id === topRatedId) badges.append(el("span", "badge rated", "Top rated"));
+    if (p.id === bestValueId && p.id !== cheapestId && p.id !== topRatedId) badges.append(el("span", "badge value", "Best value"));
+
+    const a = el("a", "title", p.title);
+    a.href = p.url; a.target = "_blank"; a.rel = "noopener";
+
+    const meta = el("div", "meta");
+    meta.append(el("span", "store " + p.site.toLowerCase(), p.site), stars(p));
+    info.append(badges, a, meta);
+
+    if (p.pid) {
+      const row = el("div", "predict-row");
+      if (p.prediction) row.append(chip(p.prediction));
+      const hb = el("button", "linkbtn", "Price history and prediction");
+      hb.type = "button";
+      hb.setAttribute("aria-label", "Price history and prediction for " + p.title);
+      hb.addEventListener("click", () => openHistory(p.pid));
+      row.append(hb);
+      info.append(row);
+    }
+
+    const buy = el("div", "buy");
+    buy.append(el("div", "tag", rupee(p.price)));
+    if (p.mrp) {
+      const m = el("div", "mrp");
+      const s = el("s", null, rupee(p.mrp)); s.setAttribute("aria-label", "MRP " + rupee(p.mrp));
+      m.append(s, el("span", "off", `${p.discount}% off`));
+      buy.append(m);
+    }
+    const btn = el("button", "cmp");
+    btn.type = "button";
+    btn.setAttribute("aria-pressed", picked);
+    btn.setAttribute("aria-label", (picked ? "Remove from compare: " : "Add to compare: ") + p.title);
+    btn.append(el("span", "box"), picked ? "Comparing" : "Compare");
+    btn.addEventListener("click", () => toggleCompare(p.id));
+    buy.append(btn);
+
+    card.append(thumb(p, "media"), info, buy);
+    resultsEl.append(card);
+  });
+}
+
+function showSkeleton() {
+  resultsEl.replaceChildren();
+  for (let i = 0; i < 4; i++) {
+    const card = el("div", "item skeleton");
+    card.setAttribute("aria-hidden", "true");
+    const info = el("div", "info");
+    info.append(el("div", "bar w1"), el("div", "bar w2"));
+    const buy = el("div", "buy"); buy.append(el("div", "tagph"));
+    card.append(el("div", "media"), info, buy);
+    resultsEl.append(card);
+  }
+}
+
+/* ---------- Compare ---------- */
+function toggleCompare(id) {
+  const i = state.selected.indexOf(id);
+  if (i >= 0) state.selected.splice(i, 1);
+  else if (state.selected.length >= MAX_COMPARE) { renderTray(`You can compare up to ${MAX_COMPARE}. Remove one first.`); return; }
+  else state.selected.push(id);
+  renderList();
+  renderTray();
+}
+
+function renderTray(message) {
+  const n = state.selected.length;
+  tray.hidden = n === 0;
+  const thumbs = $("trayThumbs"); thumbs.replaceChildren();
+  state.selected.forEach(id => {
+    const p = state.products[id]; const s = el("span");
+    if (p.image) { const img = el("img"); img.src = p.image; img.alt = ""; s.append(img); } else s.textContent = p.site;
+    thumbs.append(s);
+  });
+  const text = $("trayText"); text.replaceChildren();
+  text.append(n === 1 ? "1 product picked" : `${n} products picked`);
+  text.append(el("small", null, message || (n < 2 ? "Pick one more to compare." : `Up to ${MAX_COMPARE}.`)));
+  $("trayGo").disabled = n < 2;
+  $("trayGo").textContent = n >= 2 ? `Compare ${n}` : "Compare";
+}
+
+function bestIds(items, key, better) {
+  const vals = items.map(key).filter(v => v !== null && v !== undefined);
+  if (vals.length < 2) return new Set();
+  const best = better === "max" ? Math.max(...vals) : Math.min(...vals);
+  const winners = items.filter(p => key(p) === best);
+  return winners.length === items.length ? new Set() : new Set(winners.map(p => p.id));
+}
+
+function openCompare() {
+  const items = state.selected.map(id => state.products[id]);
+  if (items.length < 2) return;
+  const body = $("dlgBody"); body.replaceChildren();
+  $("dlgTitle").textContent = `Comparing ${items.length} products`;
+
+  const cheapest = items.reduce((a, b) => (b.price < a.price ? b : a));
+  const rated = items.filter(p => p.rating);
+  const topRated = rated.length ? rated.reduce((a, b) => (b.weighted > a.weighted ? b : a)) : null;
+  const value = items.reduce((a, b) => (b.value > a.value ? b : a));
+
+  const verdict = el("div", "verdict");
+  const v = (label, p, extra) => { const d = el("div"); d.append(el("span", null, label), el("strong", null, p.title)); if (extra) d.append(el("span", null, extra)); return d; };
+  verdict.append(v("Cheapest", cheapest, `${rupee(cheapest.price)} on ${cheapest.site}`));
+  if (topRated) verdict.append(v("Best rated", topRated, `${topRated.rating.toFixed(1)} stars` + (topRated.reviews ? ` from ${count(topRated.reviews)} ratings` : "")));
+  else verdict.append((() => { const d = el("div"); d.append(el("span", null, "Best rated"), el("strong", null, "None of these have ratings yet")); return d; })());
+  verdict.append(v("Best value", value, "Balances rating against price"));
+  body.append(verdict);
+
+  const wins = {
+    price: bestIds(items, p => p.price, "min"),
+    discount: bestIds(items, p => p.discount ?? null, "max"),
+    rating: bestIds(items, p => p.rating ?? null, "max"),
+    reviews: bestIds(items, p => p.reviews ?? null, "max"),
+  };
+
+  const table = el("table", "cmp-table");
+  const cap = el("caption", "sr-only", "Selected products compared by price and rating");
+  table.append(cap);
+
+  const thead = el("thead"); const hr = el("tr");
+  hr.append(el("td"));
+  items.forEach(p => {
+    const th = el("th"); th.scope = "col";
+    th.append(thumb(p, "head-img"), el("div", "head-title", p.title));
+    const rm = el("button", "remove", "Remove"); rm.type = "button";
+    rm.addEventListener("click", () => { toggleCompare(p.id); state.selected.length >= 2 ? openCompare() : dlg.close(); });
+    th.append(rm);
+    hr.append(th);
+  });
+  thead.append(hr); table.append(thead);
+
+  const tbody = el("tbody");
+  const row = (label, fill, winSet) => {
+    const tr = el("tr"); const th = el("th", null, label); th.scope = "row"; tr.append(th);
+    items.forEach(p => { const td = el("td"); if (winSet && winSet.has(p.id)) td.classList.add("win"); fill(td, p); tr.append(td); });
+    tbody.append(tr);
+  };
+
+  row("Price", (td, p) => td.append(el("div", "big", rupee(p.price))), wins.price);
+  row("Vs cheapest", (td, p) => {
+    const diff = p.price - cheapest.price;
+    td.append(diff === 0 ? el("span", null, "Cheapest") : el("span", "muted", `${rupee(diff)} more (${Math.round(diff / cheapest.price * 100)}%)`));
+  });
+  row("MRP", (td, p) => {
+    if (!p.mrp) { td.append(el("span", "muted", "Not shown")); return; }
+    const s = el("s", "muted", rupee(p.mrp)); td.append(s, " ", el("b", null, `${p.discount}% off`));
+  }, wins.discount);
+  row("Rating", (td, p) => td.append(stars(p, false)), wins.rating);
+  row("Ratings", (td, p) => td.append(p.reviews ? el("span", null, count(p.reviews)) : el("span", "muted", "None")), wins.reviews);
+  row("Store", (td, p) => td.append(el("span", "store " + p.site.toLowerCase(), p.site)));
+  row("", (td, p) => { const a = el("a", "open", `Open on ${p.site}`); a.href = p.url; a.target = "_blank"; a.rel = "noopener"; td.append(a); });
+  table.append(tbody);
+
+  const wrap = el("div", "table-wrap"); wrap.append(table);
+  body.append(wrap);
+  if (!dlg.open) dlg.showModal();
+}
+
+$("trayGo").addEventListener("click", openCompare);
+$("trayClear").addEventListener("click", () => { state.selected = []; renderList(); renderTray(); });
+$("dlgClose").addEventListener("click", () => dlg.close());
+dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+
+/* ---------- Toolbar ---------- */
+function bindSeg(groupId, attr, key) {
+  $(groupId).addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    state[key] = b.dataset[attr];
+    $(groupId).querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    renderList();
+  });
+}
+bindSeg("sort", "sort", "sort");
+bindSeg("sites", "site", "site");
+
+/* ---------- Buy-or-wait chip ---------- */
+const CHIP_ICON = { buy: "✓", wait: "↓", fair: "–", unknown: "…" };
+function chip(pred) {
+  const c = el("span", "pchip v-" + pred.verdict);
+  const ico = el("span", "ico", pred.verdict === "wait" && !/drop/i.test(pred.label) ? "!" : CHIP_ICON[pred.verdict]);
+  ico.setAttribute("aria-hidden", "true");
+  c.append(ico, pred.label);
+  if (pred.confidence === "low" && pred.verdict !== "unknown") c.append(el("span", "guess", "early guess"));
+  return c;
+}
+
+/* ---------- Price history dialog ---------- */
+const hist = $("hist");
+let histProduct = null;
+$("histClose").addEventListener("click", () => hist.close());
+hist.addEventListener("click", e => { if (e.target === hist) hist.close(); });
+
+const dayLabel = iso => new Date(iso + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+const CONF_TEXT = {
+  low: "Low. This is an early guess from very little price history.",
+  medium: "Medium. We have some price history, but not much yet.",
+  high: "High. Based on plenty of price history.",
+};
+
+async function openHistory(pid) {
+  const body = $("histBody");
+  body.replaceChildren(el("p", "chart-note", "Loading price history..."));
+  if (!hist.open) hist.showModal();
+  try {
+    const data = await api("/api/product?id=" + encodeURIComponent(pid));
+    histProduct = data;
+    renderHistory(data);
+  } catch (err) {
+    body.replaceChildren(el("p", "chart-note", err.message));
+  }
+}
+
+function renderHistory(data) {
+  const { product: p, history, prediction: pred } = data;
+  const body = $("histBody");
+  body.replaceChildren();
+
+  // Product line
+  const head = el("div", "hp");
+  const t = el("div");
+  t.append(el("div", "ht", p.title), el("div", "hs", p.site));
+  const tag = el("div", "tag", rupee(pred.stats.current));
+  head.append(thumb(p, "media"), t, tag);
+  body.append(head);
+
+  // Verdict
+  const box = el("div", "callout v-" + pred.verdict);
+  box.append(el("h3", null, pred.headline));
+  const dl = el("dl");
+  const row = (k, v) => dl.append(el("dt", null, k), el("dd", null, v));
+  row("Best time to buy", pred.when);
+  if (pred.forecast) row("Expected in a week", rupee(pred.forecast) + (pred.trend_pct ? ` (${pred.trend_pct > 0 ? "+" : ""}${pred.trend_pct}%)` : ""));
+  row("How sure we are", CONF_TEXT[pred.confidence]);
+  box.append(dl);
+  body.append(box);
+
+  // Chart
+  body.append(drawChart(history, pred));
+
+  // Stats
+  const s = pred.stats;
+  const stats = el("div", "hstats");
+  [["Lowest", rupee(s.low)], ["Average", rupee(s.avg)], ["Highest", rupee(s.high)],
+   ["Days recorded", String(s.days)]].forEach(([k, v]) => {
+    const d = el("div"); d.append(el("span", null, k), el("b", null, v)); stats.append(d);
+  });
+  body.append(stats);
+
+  // Reasons
+  const why = el("div", "why");
+  why.append(el("h4", null, "Why"));
+  const ul = el("ul");
+  pred.reasons.forEach(r => {
+    const li = el("li", "v-" + r.type);
+    const ico = el("span", "ico", r.type === "buy" ? "✓" : r.type === "wait" ? "↓" : "i");
+    ico.setAttribute("aria-hidden", "true");
+    li.append(ico, el("span", null, r.text));
+    ul.append(li);
+  });
+  why.append(ul);
+  body.append(why);
+
+  // Tracking
+  const tb = el("div", "track-box");
+  const msg = el("p");
+  const btn = el("button", "btn-track" + (data.tracked ? " on" : ""));
+  btn.type = "button";
+  if (data.tracked) {
+    msg.append(el("b", null, "You're tracking this product. "), "We check its price once a day while the app is running.");
+    btn.textContent = "Stop tracking";
+  } else {
+    msg.append("Track it and we'll check its price once a day while the app is running, so this prediction gets better.");
+    btn.textContent = "Track this product";
+  }
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    try {
+      const r = await api("/api/track", {
+        method: data.tracked ? "DELETE" : "POST",
+        body: JSON.stringify({ id: p.id, query: state.query }),
+      });
+      data.tracked = r.tracked;
+      const card = state.products.find(x => x.pid === p.id); if (card) card.tracked = r.tracked;
+      renderHistory(data);
+      loadTracked();
+    } catch (err) { msg.textContent = err.message; btn.disabled = false; }
+  });
+  tb.append(msg, btn);
+  body.append(tb);
+
+  // Table view of the same data
+  const det = el("details", "tbl");
+  det.append(el("summary", null, "Show prices as a table"));
+  const table = el("table");
+  const hr = el("tr"); hr.append(el("th", null, "Date"), el("th", null, "Price"), el("th", null, "MRP")); table.append(hr);
+  history.slice().reverse().forEach(h => {
+    const tr = el("tr");
+    tr.append(el("td", null, dayLabel(h.day)), el("td", null, rupee(h.price)), el("td", null, h.mrp ? rupee(h.mrp) : "Not shown"));
+    table.append(tr);
+  });
+  det.append(table);
+  body.append(det);
+
+  body.append(el("p", "disclaimer",
+    "Predictions come from the prices this app has recorded, plus usual Indian sale seasons. Prices can change suddenly, so treat this as a guide, not a promise."));
+}
+
+/* ---------- Chart: price over time, with the 7-day forecast dashed ---------- */
+const SVGNS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs, text) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function niceTicks(lo, hi, count = 4) {
+  const span = hi - lo || hi || 1;
+  const raw = span / count, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
+  const start = Math.floor(lo / step) * step, ticks = [];
+  for (let v = start; v <= hi + step * 0.001; v += step) ticks.push(v);
+  if (ticks[ticks.length - 1] < hi) ticks.push(ticks[ticks.length - 1] + step);
+  return ticks;
+}
+
+function drawChart(history, pred) {
+  const fig = el("figure", "chart-fig");
+  fig.append(el("figcaption", null, "Price over time"));
+  // Draw at the width it will be shown, so text stays readable on phones
+  const avail = (hist.clientWidth || 640) - 40;
+  const W = Math.round(Math.max(300, Math.min(680, avail))), narrow = W < 480;
+  const H = narrow ? 200 : 230, L = narrow ? 50 : 58, R = narrow ? 84 : 104, T = 14, B = 30;
+  const toT = d => new Date(d + "T00:00:00").getTime();
+  const pts = history.map(h => ({ t: toT(h.day), p: h.price, day: h.day }));
+  const fc = pred.forecast && pred.forecast_day ? { t: toT(pred.forecast_day), p: pred.forecast, day: pred.forecast_day } : null;
+
+  const DAY = 864e5;
+  let t0 = pts[0].t, t1 = Math.max(pts[pts.length - 1].t, fc ? fc.t : 0);
+  if (t1 - t0 < 6 * DAY) { const mid = (t0 + t1) / 2; t0 = mid - 3 * DAY; t1 = mid + 3 * DAY; }
+  const values = pts.map(x => x.p).concat(fc ? [fc.p] : []);
+  let lo = Math.min(...values), hi = Math.max(...values);
+  const pad = Math.max((hi - lo) * 0.12, hi * 0.04);
+  const ticks = niceTicks(Math.max(0, lo - pad), hi + pad);
+  const y0 = ticks[0], y1 = ticks[ticks.length - 1];
+  const X = t => L + (t - t0) / (t1 - t0) * (W - L - R);
+  const Y = p => T + (1 - (p - y0) / (y1 - y0)) * (H - T - B);
+
+  const first = pts[0], last = pts[pts.length - 1];
+  const s = svg("svg", { viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": pts.length > 1
+      ? `Price went from ${rupee(first.p)} on ${dayLabel(first.day)} to ${rupee(last.p)} on ${dayLabel(last.day)}` + (fc ? `, forecast ${rupee(fc.p)} by ${dayLabel(fc.day)}` : "")
+      : `One recorded price: ${rupee(last.p)} on ${dayLabel(last.day)}` });
+
+  ticks.forEach(v => {
+    s.append(svg("line", { class: "grid", x1: L, x2: W - R + 8, y1: Y(v), y2: Y(v) }));
+    s.append(svg("text", { class: "axis-label", x: L - 8, y: Y(v) + 4, "text-anchor": "end" }, rupee(v)));
+  });
+  let xLabels = [first, ...(pts.length > 1 ? [last] : []), ...(fc ? [fc] : [])];
+  // Drop today's date label if it would run into its neighbours
+  if (xLabels.length === 3 && (X(fc.t) - X(last.t) < 56 || X(last.t) - X(first.t) < 56)) xLabels = [first, fc];
+  xLabels.forEach((x, i) => s.append(svg("text", {
+    class: "axis-label", x: X(x.t), y: H - 8,
+    "text-anchor": i === 0 && xLabels.length > 1 ? "start" : (i === xLabels.length - 1 && xLabels.length > 1 ? "end" : "middle"),
+  }, dayLabel(x.day))));
+
+  if (pts.length > 1) {
+    s.append(svg("path", { class: "series", d: pts.map((x, i) => (i ? "L" : "M") + X(x.t).toFixed(1) + " " + Y(x.p).toFixed(1)).join(" ") }));
+  }
+  if (fc) {
+    s.append(svg("line", { class: "forecast", x1: X(last.t), y1: Y(last.p), x2: X(fc.t), y2: Y(fc.p) }));
+    s.append(svg("circle", { class: "dot future", cx: X(fc.t), cy: Y(fc.p), r: 4 }));
+    s.append(svg("text", { class: "point-label muted", x: X(fc.t) + 8, y: Y(fc.p) + 4 }, "Forecast " + rupee(fc.p)));
+  }
+  if (pts.length <= 30) pts.forEach(x => s.append(svg("circle", { class: "dot", cx: X(x.t), cy: Y(x.p), r: 4 })));
+  else s.append(svg("circle", { class: "dot", cx: X(last.t), cy: Y(last.p), r: 4 }));
+
+  // Direct labels: today's price, and the lowest if it was another day
+  const lowPt = pts.reduce((a, b) => (b.p < a.p ? b : a));
+  const prev = pts.length > 1 ? pts[pts.length - 2] : null;
+  const below = prev && prev.p > last.p;   // line arrives from above, so label underneath
+  s.append(svg("text", { class: "point-label", x: X(last.t) - 6, y: Y(last.p) + (below ? 20 : -12), "text-anchor": "end" }, "Now " + rupee(last.p)));
+  if (lowPt !== last && pts.length > 2) {
+    s.append(svg("text", { class: "point-label muted", x: X(lowPt.t), y: Y(lowPt.p) + 18, "text-anchor": "middle" }, "Lowest " + rupee(lowPt.p)));
+  }
+
+  // Hover: crosshair + tooltip on the nearest recorded day
+  const cross = svg("line", { class: "cross", y1: T, y2: H - B, visibility: "hidden" });
+  const hit = svg("rect", { x: L, y: T, width: W - L - R, height: H - T - B, fill: "transparent" });
+  s.append(cross, hit);
+  const tip = el("div", "chart-tip"); tip.hidden = true;
+  const all = pts.concat(fc ? [{ ...fc, future: true }] : []);
+  hit.addEventListener("pointermove", e => {
+    const box = s.getBoundingClientRect();
+    const vx = (e.clientX - box.left) / box.width * W;
+    const near = all.reduce((a, b) => (Math.abs(X(b.t) - vx) < Math.abs(X(a.t) - vx) ? b : a));
+    cross.setAttribute("x1", X(near.t)); cross.setAttribute("x2", X(near.t)); cross.setAttribute("visibility", "visible");
+    tip.replaceChildren(el("span", null, dayLabel(near.day) + (near.future ? " (forecast) " : " ")), el("b", null, rupee(near.p)));
+    tip.style.left = (X(near.t) / W * 100) + "%";
+    tip.style.top = (Y(near.p) / H * box.height + fig.querySelector("figcaption").offsetHeight + 6) + "px";
+    tip.hidden = false;
+  });
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+
+  fig.append(s, tip);
+  if (pts.length === 1) fig.append(el("p", "chart-note", "Only one price so far. The line appears once we've recorded it on more days."));
+  else if (fc) fig.append(el("p", "chart-note", "The dashed line is our forecast for the next 7 days."));
+  return fig;
+}
+
+/* ---------- Tracked products ---------- */
+async function loadTracked() {
+  try {
+    const { items } = await api("/api/tracked");
+    const list = $("trackedList");
+    list.replaceChildren();
+    $("tracked").hidden = !items.length;
+    items.forEach(it => {
+      const r = el("button", "trow");
+      r.type = "button";
+      r.append(thumb(it, "media"), el("span", "tt", it.title), el("span", "tp", rupee(it.price)));
+      if (it.prediction) r.append(chip(it.prediction));
+      r.setAttribute("aria-label", `${it.title}, ${rupee(it.price)}, ${it.prediction ? it.prediction.label : ""}. Open price history`);
+      r.addEventListener("click", () => openHistory(it.id));
+      list.append(r);
+    });
+  } catch (err) { /* the list is optional; searching still works */ }
+}
+loadTracked();
+
+/* ---------- Search ---------- */
+form.addEventListener("submit", async e => {
+  e.preventDefault();
+  const term = q.value.trim();
+  if (!term) return;
+
+  go.disabled = true;
+  statusEl.textContent = "Checking Amazon and Flipkart. This can take a few seconds.";
+  warnEl.replaceChildren();
+  toolbar.hidden = true; hintEl.hidden = true;
+  state.selected = []; renderTray();
+  showSkeleton();
+
+  try {
+    const data = await api("/api/search?q=" + encodeURIComponent(term));
+
+    data.warnings.forEach(w => warnEl.append(el("div", "warn", w)));
+
+    if (!data.products.length) {
+      resultsEl.replaceChildren();
+      statusEl.textContent = "No prices found. Try a more specific name, like the brand and model.";
+      return;
+    }
+
+    data.products.forEach(p => { p.pid = p.id; }); // keep the store's product ID; p.id becomes the list position
+    state.products = data.products;
+    state.query = data.query;
+    state.meta = scoreProducts(state.products);
+
+    const rated = data.products.filter(p => p.rating).length;
+    statusEl.replaceChildren(
+      el("strong", null, `${data.products.length} results`),
+      ` for "${data.query}". ${rated} of them have ratings. Open "Price history and prediction" on any product to see whether to buy now or wait.`
+    );
+    toolbar.hidden = false;
+    renderList();
+    loadTracked();
+  } catch (err) {
+    resultsEl.replaceChildren();
+    statusEl.textContent = err.message;
+  } finally {
+    go.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

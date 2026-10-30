@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ "Create account" if mode == "signup" else "Sign in" }} · Price Finder</title>
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef2ee; --card: #ffffff; --ink: #142019; --muted: #5a6760;
+    --line: #d3dcd6; --soft: #e3ebe5; --accent: #0b6e50;
+    --tag: #ffd23f; --tag-ink: #1b1600; --error: #b3261e; --error-bg: #fdecea;
+    --display: "Bricolage Grotesque", "Figtree", system-ui, sans-serif;
+    --body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1612; --card: #17211c; --ink: #e6eee9; --muted: #9aa8a1;
+      --line: #2a3831; --soft: #22302a; --accent: #3fbf8f;
+      --error: #ff8a80; --error-bg: #3a1d1b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; background: var(--bg); color: var(--ink);
+    font-family: var(--body); line-height: 1.5;
+    display: grid; place-items: start center;
+  }
+  main { width: 100%; max-width: 440px; padding: 56px 20px 64px; }
+
+  .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--ink); font-weight: 700; margin-bottom: 36px; }
+  .brand .mark {
+    display: inline-grid; place-items: center; height: 30px; padding: 0 10px 0 18px;
+    font-family: var(--display); font-weight: 800; background: var(--tag); color: var(--tag-ink);
+    clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%);
+    -webkit-mask: radial-gradient(circle at 8px 50%, transparent 2.5px, #000 3px);
+            mask: radial-gradient(circle at 8px 50%, transparent 2.5px, #000 3px);
+  }
+
+  h1 {
+    font-family: var(--display); font-weight: 800; letter-spacing: -0.03em;
+    font-size: clamp(2rem, 7vw, 2.6rem); line-height: 1.05; margin: 0 0 8px;
+  }
+  .lede { color: var(--muted); margin: 0 0 28px; }
+
+  .notice, .form-error {
+    padding: 11px 14px; border-radius: 10px; margin: 0 0 18px; font-size: .95rem;
+  }
+  .notice { background: var(--soft); }
+  .form-error { background: var(--error-bg); color: var(--error); font-weight: 500; }
+
+  form { display: grid; gap: 18px; }
+  .field { display: grid; gap: 6px; }
+  label { font-weight: 600; font-size: .95rem; }
+  .help { color: var(--muted); font-size: .85rem; }
+  .input-wrap { position: relative; }
+  input[type=text], input[type=email], input[type=password] {
+    width: 100%; font: inherit; font-size: 1.02rem; color: var(--ink);
+    padding: 12px 14px; border: 2px solid var(--line); border-radius: 10px; background: var(--card);
+  }
+  input:hover { border-color: color-mix(in srgb, var(--ink) 40%, var(--line)); }
+  input:focus-visible { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+  input[aria-invalid="true"] { border-color: var(--error); }
+  .has-toggle input { padding-right: 70px; }
+  .toggle {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .85rem; font-weight: 600;
+    padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  }
+  .toggle:hover { color: var(--ink); background: var(--soft); }
+  .err { color: var(--error); font-size: .88rem; font-weight: 500; }
+
+  .check { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+  .check input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+
+  .submit {
+    font: inherit; font-weight: 700; font-size: 1.02rem; padding: 14px 18px; margin-top: 4px;
+    border: 0; border-radius: 10px; background: var(--ink); color: var(--bg); cursor: pointer;
+  }
+  .submit:active { transform: translateY(1px); }
+  :where(a, button, input[type=checkbox]):focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .switch { margin: 26px 0 0; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); }
+  .switch a { color: var(--accent); font-weight: 700; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main>
+  <a class="brand" href="{{ url_for('login') }}"><span class="mark" aria-hidden="true">₹</span>Price Finder</a>
+
+  {% if mode == "signup" %}
+    <h1>Create your account</h1>
+    <p class="lede">Compare prices and ratings across Amazon and Flipkart.</p>
+  {% else %}
+    <h1>Welcome back</h1>
+    <p class="lede">Sign in with your email to start comparing prices.</p>
+  {% endif %}
+
+  {% if request.args.get("out") and not errors %}
+    <p class="notice" role="status">You've signed out.</p>
+  {% endif %}
+  {% if errors.form %}
+    <p class="form-error" role="alert">{{ errors.form }}</p>
+  {% endif %}
+
+  <form method="post" novalidate>
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <input type="hidden" name="next" value="{{ next }}">
+
+    {% if mode == "signup" %}
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" id="name" name="name" value="{{ form.name }}" autocomplete="name" maxlength="60" required
+             {% if errors.name %}aria-invalid="true" aria-describedby="name-err"{% endif %} {% if not form.name %}autofocus{% endif %}>
+      {% if errors.name %}<span class="err" id="name-err">{{ errors.name }}</span>{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" value="{{ form.email }}" autocomplete="email" required
+             {% if errors.email %}aria-invalid="true" aria-describedby="email-err"{% endif %}
+             {% if mode == "login" and not form.email %}autofocus{% endif %}>
+      {% if errors.email %}<span class="err" id="email-err">{{ errors.email }}</span>{% endif %}
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      {% if mode == "signup" %}<span class="help" id="pw-help">At least 8 characters.</span>{% endif %}
+      <div class="input-wrap has-toggle">
+        <input type="password" id="password" name="password" required
+               autocomplete="{{ 'new-password' if mode == 'signup' else 'current-password' }}"
+               {% if errors.password %}aria-invalid="true" aria-describedby="pw-err"{% elif mode == "signup" %}aria-describedby="pw-help"{% endif %}
+               {% if mode == "login" and form.email %}autofocus{% endif %}>
+        <button type="button" class="toggle" data-for="password" aria-pressed="false" aria-label="Show password">Show</button>
+      </div>
+      {% if errors.password %}<span class="err" id="pw-err">{{ errors.password }}</span>{% endif %}
+    </div>
+
+    {% if mode == "signup" %}
+    <div class="field">
+      <label for="confirm">Confirm password</label>
+      <input type="password" id="confirm" name="confirm" autocomplete="new-password" required
+             {% if errors.confirm %}aria-invalid="true" aria-describedby="confirm-err"{% endif %}>
+      {% if errors.confirm %}<span class="err" id="confirm-err">{{ errors.confirm }}</span>{% endif %}
+    </div>
+    {% else %}
+    <label class="check"><input type="checkbox" name="remember" checked> Keep me signed in for 30 days</label>
+    {% endif %}
+
+    <button class="submit" type="submit">{{ "Create account" if mode == "signup" else "Sign in" }}</button>
+  </form>
+
+  <p class="switch">
+    {% if mode == "signup" %}
+      Already have an account? <a href="{{ url_for('login', next=next) if next else url_for('login') }}">Sign in</a>
+    {% else %}
+      New here? <a href="{{ url_for('signup', next=next) if next else url_for('signup') }}">Create an account</a>
+    {% endif %}
+  </p>
+</main>
+<script>
+  document.querySelectorAll(".toggle").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const input = document.getElementById(btn.dataset.for);
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.textContent = show ? "Hide" : "Show";
+      btn.setAttribute("aria-pressed", show);
+      btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    });
+  });
+</script>
+</body>
+</html>
